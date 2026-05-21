@@ -4,4 +4,4 @@ const isLocal =
 
 const API = isLocal
   ? 'http://localhost:3000/api'
-  : 'https://meditrack-production-a3dd.up.railway.app/api';
+  : 'https://meditrack-production-08ff.up.railway.app/api';
