@@ -120,18 +120,76 @@ function renderTable(data) {
 
 // ── Load ──────────────────────────────────────────────────────
 
-async function loadRIS() {
+async function loadRIS(showLoader = false) {
+  const refreshBtn = document.getElementById('btnRefresh');
+
   try {
-    const res = await fetch(`${API}/ris`);
-    const data = await res.json();
-    allRIS = Array.isArray(data) ? data : [];
-  } catch {
-    allRIS = [];
-    showToast('Error', 'Failed to load RIS requests.', 'e');
+    // loading state
+    if (refreshBtn) {
+      refreshBtn.disabled = true;
+      refreshBtn.innerHTML = `
+    <i class="bi bi-arrow-clockwise spin"></i>
+    Refresh
+    `;
+    }
+
+    // important: no-cache fetch
+    const res = await fetch(`${API}/ris?refresh=${Date.now()}`, {
+  method: 'GET',
+  headers: {
+    'Cache-Control': 'no-cache',
+    'Pragma': 'no-cache'
   }
-  applyFilters();
-  if (window.setRisBadgeCount) {
-    window.setRisBadgeCount(allRIS.filter(r => r.status === 'pending').length);
+});
+
+    if (!res.ok) {
+      throw new Error('Failed to fetch RIS');
+    }
+
+      const data = await res.json();
+      console.log('Fresh API data:', data);
+
+      allRIS = Array.isArray(data) ? [...data] : [];
+
+// force clear old table
+const tbody = document.getElementById('risBody');
+tbody.innerHTML = '';
+
+// hide empty state while refreshing
+document.getElementById('emptyState').style.display = 'none';
+
+// rerender latest data immediately
+renderTable(allRIS);
+
+    // update badge
+    if (window.setRisBadgeCount) {
+      window.setRisBadgeCount(
+        allRIS.filter(r => r.status === 'pending').length
+      );
+    }
+
+    console.log('RIS refreshed:', allRIS.length);
+
+  } catch (err) {
+    console.error(err);
+
+    allRIS = [];
+    renderTable([]);
+
+    showToast(
+      'Error',
+      'Failed to refresh RIS requests.',
+      'e'
+    );
+
+  } finally {
+    // restore button
+    if (refreshBtn) {
+      refreshBtn.disabled = false;
+      refreshBtn.innerHTML = `
+        <i class="bi bi-arrow-clockwise"></i> Refresh
+      `;
+    }
   }
 }
 
@@ -604,3 +662,8 @@ loadRIS();
 if (!window._risBadgeInterval) {
   window._risBadgeInterval = setInterval(loadRIS, 10000);
 }
+document
+  .getElementById('btnRefresh')
+  .addEventListener('click', () => {
+    loadRIS(true);
+  });
